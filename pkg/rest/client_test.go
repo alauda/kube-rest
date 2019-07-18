@@ -1,8 +1,9 @@
-package http
+package rest
 
 import (
 	"alauda/kube-rest/pkg/config"
 	"alauda/kube-rest/pkg/types"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,22 +11,68 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path"
 	"reflect"
 	"testing"
 
 	types2 "k8s.io/apimachinery/pkg/types"
 )
 
-func getJSON(key, val string) []byte {
-	return []byte(fmt.Sprintf(`{%q: %q}`, key, val))
+var _ Object = &testObj{}
+
+type testObj struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
 }
 
-func getJSONObjectList(obj map[string]string) []byte {
-	bt, _ := json.Marshal(obj)
-	return bt
+func (t *testObj) AbsPath() string {
+	return "/test"
 }
 
-func getClientServer(h func(http.ResponseWriter, *http.Request)) (Interface, *httptest.Server, error) {
+func (t *testObj) AbsObjPath() string {
+	return path.Join("/test", t.Name)
+}
+
+func (t *testObj) Data() ([]byte, error) {
+	return json.Marshal(t)
+}
+
+func (t *testObj) Parse(bt []byte) error {
+	clone := new(testObj)
+	if err := json.Unmarshal(bt, clone); nil != err {
+		return err
+	}
+	*t = *clone
+	return nil
+}
+
+type testObjList struct {
+	Items []testObj `json:"items"`
+}
+
+func (t *testObjList) AbsPath() string {
+	return "/test"
+}
+
+func (t *testObjList) Parse(bt []byte) error {
+	clone := new(testObjList)
+	if err := json.Unmarshal(bt, clone); nil != err {
+		return err
+	}
+	*t = *clone
+	return nil
+}
+
+func getJSON(name, id string) []byte {
+	return []byte(fmt.Sprintf(`{"name":%q,"id":%q}`, name, id))
+}
+
+func getJSONList(items ...[]byte) []byte {
+	json := fmt.Sprintf(`{"items": [%s]}`, bytes.Join(items, []byte(",")))
+	return []byte(json)
+}
+
+func getClientServer(h func(http.ResponseWriter, *http.Request)) (Client, *httptest.Server, error) {
 	svr := httptest.NewServer(http.HandlerFunc(h))
 	cfg, err := config.GetDefaultConfig(svr.URL)
 	if nil != err {
@@ -39,28 +86,18 @@ func getClientServer(h func(http.ResponseWriter, *http.Request)) (Interface, *ht
 	return client, svr, nil
 }
 
-func TestList(t *testing.T) {
+func TestGet(t *testing.T) {
 	cases := []struct {
-		method string
-		name   string
-		path   string
-		resp   []byte
-		want   []byte
+		name string
+		path string
+		resp []byte
+		want Object
 	}{
 		{
-			name: "normal_list",
-			path: "/test/",
+			name: "normal_get",
+			path: "/test/a",
 			resp: getJSON("a", "b"),
-			want: getJSON("a", "b"),
-		},
-		{
-			name: "filtered_list",
-			path: "/test/?filter=a",
-			resp: getJSONObjectList(map[string]string{
-				"a": "b",
-				"c": "d",
-			}),
-			want: getJSONObjectList(map[string]string{"a": "b"}),
+			want: &testObj{"a", "b"},
 		},
 	}
 
@@ -72,26 +109,14 @@ func TestList(t *testing.T) {
 			continue
 		}
 		cli, srv, err := getClientServer(func(w http.ResponseWriter, r *http.Request) {
-			if "GET" != r.Method {
-				t.Errorf("List(%q) got HTTP method %s. wanted GET", c.name, r.Method)
+			if r.Method != "GET" {
+				t.Errorf("Get(%q) got HTTP method %s. wanted GET", c.name, r.Method)
 			}
+
 			if r.URL.Path != path.Path {
-				t.Errorf("List(%q) got path %s. wanted %s", c.name, r.URL.Path, c.path)
+				t.Errorf("Get(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
 			}
-			filter, ok := r.URL.Query()["filter"]
-			if ok {
-				obj := make(map[string]string)
-				res := make(map[string]string)
-				if err := json.Unmarshal(c.resp, &obj); nil != err {
-					t.Errorf("unexpected error when filtering result: %v", err)
-				}
-				for _, key := range filter {
-					if val, ok := obj[key]; ok {
-						res[key] = val
-					}
-				}
-				c.resp = getJSONObjectList(res)
-			}
+
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(c.resp)
 		})
@@ -109,35 +134,36 @@ func TestList(t *testing.T) {
 			params[k] = values[0]
 		}
 
-		got, err := cli.List(context.TODO(), path.Path, &types.Options{Params: params})
+		got := &testObj{Name: "a"}
+
+		err = cli.Get(context.TODO(), got)
 
 		if nil != err {
-			t.Errorf("unexpected error when listing %q: %v", c.name, err)
+			t.Errorf("unexpected error when get %q: %v", c.name, err)
 			continue
 		}
-
 		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("List(%q) want: %s\ngot: %s", c.name, c.want, got)
+			t.Errorf("Get(%q) want: %v\ngot: %v", c.name, c.want, got)
 		}
 	}
-
 }
 
-func TestDelete(t *testing.T) {
+func TestList(t *testing.T) {
 	cases := []struct {
-		method string
-		name   string
-		path   string
-		resp   []byte
-		want   []byte
+		name string
+		path string
+		resp []byte
+		want ObjectList
 	}{
 		{
-			name: "normal_delete",
-			path: "/test/",
-		},
-		{
-			name: "filtered_delete",
-			path: "/test/?filter=a",
+			name: "normal_get",
+			path: "/test?filter=a",
+			resp: getJSONList(getJSON("a", "b")),
+			want: &testObjList{
+				Items: []testObj{
+					{Name: "a", ID: "b"},
+				},
+			},
 		},
 	}
 
@@ -149,15 +175,76 @@ func TestDelete(t *testing.T) {
 			continue
 		}
 		cli, srv, err := getClientServer(func(w http.ResponseWriter, r *http.Request) {
-			if "DELETE" != r.Method {
+			if r.Method != "GET" {
+				t.Errorf("List(%q) got HTTP method %s. wanted GET", c.name, r.Method)
+			}
+
+			if r.URL.Path != path.Path {
+				t.Errorf("List(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
+			}
+
+			if !reflect.DeepEqual(r.URL.Query(), path.Query()) {
+				t.Errorf("List(%q) got query %v. wanted %v", c.name, r.URL.Query(), path.Query())
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.Write(c.resp)
+		})
+
+		if nil != err {
+			t.Errorf("unexpected error when creating client: %v", err)
+			continue
+		}
+
+		defer srv.Close()
+
+		got := &testObjList{}
+		err = cli.List(context.TODO(), got, &types.Options{Params: map[string]string{"filter": "a"}})
+
+		if nil != err {
+			t.Errorf("unexpected error when listing %q: %v", c.name, err)
+			continue
+		}
+		if !reflect.DeepEqual(got, c.want) {
+			t.Errorf("List(%q) want: %v\ngot: %v", c.name, c.want, got)
+		}
+	}
+}
+
+func TestDelete(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		resp []byte
+		want Object
+	}{
+		{
+			name: "normal_delete",
+			path: "/test/a?dryRun=false",
+			want: &testObj{Name: "a", ID: "b"},
+		},
+	}
+
+	for _, c := range cases {
+		var err error
+		var path *url.URL
+		if path, err = url.Parse(c.path); nil != err {
+			t.Errorf("unexpected error when creating client: %v", err)
+			continue
+		}
+		cli, srv, err := getClientServer(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != "DELETE" {
 				t.Errorf("Delete(%q) got HTTP method %s. wanted DELETE", c.name, r.Method)
 			}
+
 			if r.URL.Path != path.Path {
-				t.Errorf("Delete(%q) got path %s. wanted %s", c.name, r.URL.Path, c.path)
+				t.Errorf("Delete(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
 			}
+
 			if !reflect.DeepEqual(r.URL.Query(), path.Query()) {
-				t.Errorf("Delete(%q) got query %s. wanted %s", c.name, r.URL.Query(), path.Query())
+				t.Errorf("Delete(%q) got query %v. wanted %v", c.name, r.URL.Query(), path.Query())
 			}
+
 			w.Header().Set("Content-Type", "application/json")
 		})
 
@@ -168,109 +255,28 @@ func TestDelete(t *testing.T) {
 
 		defer srv.Close()
 
-		params := types.QueryParameters{}
-
-		for k, values := range path.Query() {
-			params[k] = values[0]
-		}
-
-		_, err = cli.Delete(context.TODO(), path.Path, &types.Options{Params: params})
+		got := &testObj{Name: "a"}
+		err = cli.Delete(context.TODO(), got, &types.Options{Params: map[string]string{"dryRun": "false"}})
 
 		if nil != err {
 			t.Errorf("unexpected error when deleting %q: %v", c.name, err)
 			continue
 		}
 	}
-
-}
-
-func TestPatch(t *testing.T) {
-	cases := []struct {
-		method string
-		name   string
-		path   string
-		patch  []byte
-		want   []byte
-	}{
-		{
-			name:  "normal_patch",
-			path:  "/test/",
-			patch: getJSON("a", "b"),
-			want:  getJSON("a", "b"),
-		},
-	}
-
-	for _, c := range cases {
-		var err error
-		var path *url.URL
-		if path, err = url.Parse(c.path); nil != err {
-			t.Errorf("unexpected error when creating client: %v", err)
-			continue
-		}
-		cli, srv, err := getClientServer(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "PATCH" {
-				t.Errorf("Patch(%q) got HTTP method %s. wanted PATCH", c.name, r.Method)
-			}
-
-			if r.URL.Path != path.Path {
-				t.Errorf("Patch(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
-			}
-
-			content := r.Header.Get("Content-Type")
-			if content != string(types2.StrategicMergePatchType) {
-				t.Errorf("Patch(%q) got Content-Type %s. wanted %s", c.name, content, types2.StrategicMergePatchType)
-			}
-
-			w.Header().Set("Content-Type", "application/json")
-
-			data, err := ioutil.ReadAll(r.Body)
-			if err != nil {
-				t.Errorf("Patch(%q) unexpected error reading body: %v", c.name, err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			w.Write(data)
-		})
-
-		if nil != err {
-			t.Errorf("unexpected error when creating client: %v", err)
-			continue
-		}
-
-		defer srv.Close()
-
-		params := types.QueryParameters{}
-
-		for k, values := range path.Query() {
-			params[k] = values[0]
-		}
-
-		got, err := cli.Patch(context.TODO(), path.Path, types2.StrategicMergePatchType, c.patch)
-
-		if nil != err {
-			t.Errorf("unexpected error when patching %q: %v", c.name, err)
-			continue
-		}
-		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("Patch(%q) want: %v\ngot: %v", c.name, c.want, got)
-		}
-	}
 }
 
 func TestCreate(t *testing.T) {
 	cases := []struct {
-		method string
-		name   string
-		path   string
-		data   []byte
-		want   []byte
+		name string
+		path string
+		resp []byte
+		want Object
 	}{
 		{
 			name: "normal_create",
-			path: "/test/",
-			data: getJSON("a", "b"),
-			want: getJSON("a", "b"),
+			path: "/test",
+			resp: getJSON("a", "b"),
+			want: &testObj{Name: "a", ID: "b"},
 		},
 	}
 
@@ -291,15 +297,7 @@ func TestCreate(t *testing.T) {
 			}
 
 			w.Header().Set("Content-Type", "application/json")
-
-			data, err := ioutil.ReadAll(r.Body)
-			if err != nil {
-				t.Errorf("Create(%q) unexpected error reading body: %v", c.name, err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			w.Write(data)
+			w.Write(c.resp)
 		})
 
 		if nil != err {
@@ -315,7 +313,8 @@ func TestCreate(t *testing.T) {
 			params[k] = values[0]
 		}
 
-		got, err := cli.Create(context.TODO(), path.Path, c.data)
+		got := &testObj{}
+		err = cli.Create(context.TODO(), got)
 
 		if nil != err {
 			t.Errorf("unexpected error when creating %q: %v", c.name, err)
@@ -329,17 +328,16 @@ func TestCreate(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	cases := []struct {
-		method string
-		name   string
-		path   string
-		data   []byte
-		want   []byte
+		name string
+		path string
+		resp []byte
+		want Object
 	}{
 		{
-			name: "normal_update",
-			path: "/test/",
-			data: getJSON("a", "b"),
-			want: getJSON("a", "b"),
+			name: "normal_upate",
+			path: "/test/a",
+			resp: getJSON("a", "b1"),
+			want: &testObj{Name: "a", ID: "b1"},
 		},
 	}
 
@@ -367,7 +365,10 @@ func TestUpdate(t *testing.T) {
 				return
 			}
 
-			w.Write(data)
+			if !reflect.DeepEqual(c.resp, data) {
+				t.Errorf("Update(%q) got data %s. wanted %s", c.name, data, c.resp)
+			}
+			w.Write(c.resp)
 		})
 
 		if nil != err {
@@ -377,13 +378,8 @@ func TestUpdate(t *testing.T) {
 
 		defer srv.Close()
 
-		params := types.QueryParameters{}
-
-		for k, values := range path.Query() {
-			params[k] = values[0]
-		}
-
-		got, err := cli.Update(context.TODO(), path.Path, c.data)
+		got := &testObj{Name: "a", ID: "b1"}
+		err = cli.Update(context.TODO(), got)
 
 		if nil != err {
 			t.Errorf("unexpected error when updating %q: %v", c.name, err)
@@ -395,19 +391,20 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-func TestGet(t *testing.T) {
+func TestPatch(t *testing.T) {
 	cases := []struct {
-		method string
-		name   string
-		path   string
-		resp   []byte
-		want   []byte
+		name  string
+		path  string
+		patch []byte
+		resp  []byte
+		want  Object
 	}{
 		{
-			name: "normal_get",
-			path: "/test/",
-			resp: getJSON("a", "b"),
-			want: getJSON("a", "b"),
+			name:  "normal_patch",
+			path:  "/test",
+			patch: []byte(`{"id":"b1"}`),
+			resp:  getJSON("a", "b1"),
+			want:  &testObj{Name: "a", ID: "b1"},
 		},
 	}
 
@@ -419,15 +416,30 @@ func TestGet(t *testing.T) {
 			continue
 		}
 		cli, srv, err := getClientServer(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "GET" {
-				t.Errorf("Get(%q) got HTTP method %s. wanted GET", c.name, r.Method)
+			if r.Method != "PATCH" {
+				t.Errorf("Patch(%q) got HTTP method %s. wanted PATCH", c.name, r.Method)
 			}
 
-			if r.URL.Path != c.path {
-				t.Errorf("Get(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
+			if r.URL.Path != path.Path {
+				t.Errorf("Patch(%q) got path %s. wanted %s", c.name, r.URL.Path, path.Path)
+			}
+
+			content := r.Header.Get("Content-Type")
+			if content != string(types2.StrategicMergePatchType) {
+				t.Errorf("Patch(%q) got Content-Type %s. wanted %s", c.name, content, types2.StrategicMergePatchType)
 			}
 
 			w.Header().Set("Content-Type", "application/json")
+			data, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				t.Errorf("Patch(%q) unexpected error reading body: %v", c.name, err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if !reflect.DeepEqual(c.patch, data) {
+				t.Errorf("Patch(%q) got data %s. wanted %s", c.name, data, c.patch)
+			}
 			w.Write(c.resp)
 		})
 
@@ -444,14 +456,16 @@ func TestGet(t *testing.T) {
 			params[k] = values[0]
 		}
 
-		got, err := cli.Get(context.TODO(), path.Path)
+		got := &testObj{}
+		err = cli.Patch(context.TODO(), ConstantPatch(types2.StrategicMergePatchType, c.patch), got)
 
 		if nil != err {
-			t.Errorf("unexpected error when getting %q: %v", c.name, err)
+			t.Errorf("unexpected error when patching %q: %v", c.name, err)
 			continue
 		}
+
 		if !reflect.DeepEqual(got, c.want) {
-			t.Errorf("Get(%q) want: %v\ngot: %v", c.name, c.want, got)
+			t.Errorf("Patch(%q) want: %v\ngot: %v", c.name, c.want, got)
 		}
 	}
 }

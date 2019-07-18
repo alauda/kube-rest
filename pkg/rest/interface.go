@@ -16,6 +16,13 @@ type Object interface {
 	Parse(bt []byte) error
 }
 
+// ObjectList is the object list entity for a rest request.
+// It knows how to get request url, and deepcopy the objects.
+type ObjectList interface {
+	AbsPath() string
+	Parse(bt []byte) error
+}
+
 // Patch is a patch that can be applied to a rest object.
 type Patch interface {
 	// Type is the PatchType of the patch.
@@ -34,7 +41,7 @@ type Reader interface {
 	// List retrieves list of objects for a given namespace and list options. On a
 	// successful call, Items field in the list will be populated with the
 	// result returned from the server.
-	List(ctx context.Context, obj Object, opts *types.Options) error
+	List(ctx context.Context, obj ObjectList, opts *types.Options) error
 }
 
 // Writer knows how to create, delete, and update rest objects.

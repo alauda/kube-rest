@@ -1,12 +1,13 @@
 package config
 
 import (
+	"net/url"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"net/url"
 )
 
 const (

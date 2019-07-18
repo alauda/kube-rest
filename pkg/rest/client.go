@@ -49,7 +49,7 @@ func (c *client) Get(ctx context.Context, obj Object) error {
 	return obj.Parse(bt)
 }
 
-func (c *client) List(ctx context.Context, obj Object, options *types.Options) error {
+func (c *client) List(ctx context.Context, obj ObjectList, options *types.Options) error {
 	var bt []byte
 	var err error
 	if bt, err = c.Client.List(ctx, obj.AbsPath(), options); nil != err {
