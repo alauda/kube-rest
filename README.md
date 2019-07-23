@@ -1,4 +1,8 @@
 # kube-rest
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/alauda/kube-rest/blob/master/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alauda/kube-rest)](https://goreportcard.com/report/github.com/alauda/kube-rest)
+
 Kube-Rest implement a http client for making restful request with kubernetes client-go.
 
 ## Why 
