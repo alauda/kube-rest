@@ -1,9 +1,10 @@
 package http
 
 import (
-	"github.com/alauda/kube-rest/pkg/types"
 	"context"
 	"errors"
+
+	"github.com/alauda/kube-rest/pkg/types"
 
 	types2 "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"

@@ -1,8 +1,6 @@
 package rest
 
 import (
-	"github.com/alauda/kube-rest/pkg/config"
-	"github.com/alauda/kube-rest/pkg/types"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,6 +12,9 @@ import (
 	"path"
 	"reflect"
 	"testing"
+
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/types"
 
 	types2 "k8s.io/apimachinery/pkg/types"
 )
