@@ -1,7 +1,7 @@
 package http
 
 import (
-	"alauda/kube-rest/pkg/types"
+	"github.com/alauda/kube-rest/pkg/types"
 	"context"
 	"errors"
 
