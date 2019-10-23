@@ -1,8 +1,8 @@
 package http
 
 import (
-	"alauda/kube-rest/pkg/config"
-	"alauda/kube-rest/pkg/types"
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/types"
 	"context"
 	"encoding/json"
 	"fmt"

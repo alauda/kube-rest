@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"alauda/kube-rest/pkg/types"
+	"github.com/alauda/kube-rest/pkg/types"
 	"context"
 
 	types2 "k8s.io/apimachinery/pkg/types"

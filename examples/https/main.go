@@ -1,8 +1,8 @@
 package main
 
 import (
-	"alauda/kube-rest/pkg/config"
-	"alauda/kube-rest/pkg/rest"
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/rest"
 	"context"
 	"encoding/json"
 	"log"

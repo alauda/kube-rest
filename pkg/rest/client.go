@@ -1,8 +1,8 @@
 package rest
 
 import (
-	"alauda/kube-rest/pkg/http"
-	"alauda/kube-rest/pkg/types"
+	"github.com/alauda/kube-rest/pkg/http"
+	"github.com/alauda/kube-rest/pkg/types"
 	"context"
 
 	"k8s.io/client-go/rest"

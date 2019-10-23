@@ -1,8 +1,8 @@
 package rest
 
 import (
-	"alauda/kube-rest/pkg/config"
-	"alauda/kube-rest/pkg/types"
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/types"
 	"bytes"
 	"context"
 	"encoding/json"
