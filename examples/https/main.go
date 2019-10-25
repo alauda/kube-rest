@@ -107,9 +107,9 @@ func main() {
 
 	go StartServer(stop, logger)
 
-	cfg := config.GetConfigOrDie(ServerAddress)
+	c := CertFile
 
-	cfg.TLSClientConfig.CAFile = CertFile
+	cfg := config.GetConfigOrDie(ServerAddress, &c)
 
 	cli, err := rest.NewForConfig(cfg)
 

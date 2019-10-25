@@ -45,8 +45,21 @@ func GetDefaultConfig(server string) (*rest.Config, error) {
 	return config, nil
 }
 
-func GetConfigOrDie(server string) *rest.Config {
+func GetHTTPSConfig(server string, certFile *string) (*rest.Config, error) {
 	cfg, err := GetDefaultConfig(server)
+	if nil != err {
+		return nil, err
+	}
+	if nil == certFile {
+		cfg.TLSClientConfig.Insecure = true
+	} else {
+		cfg.TLSClientConfig.CAFile = *certFile
+	}
+	return cfg, nil
+}
+
+func GetConfigOrDie(server string, certFile *string) *rest.Config {
+	cfg, err := GetHTTPSConfig(server, certFile)
 	if nil != err {
 		klog.Fatalf("unable to get kubeconfig, err=%s", err.Error())
 		return nil
