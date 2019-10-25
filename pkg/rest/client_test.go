@@ -21,16 +21,18 @@ import (
 
 var _ Object = &testObj{}
 
+var defaultOptions = &types.Options{Header: url.Values{"Content-Type": []string{"application/json"}}}
+
 type testObj struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
 }
 
-func (t *testObj) AbsPath() string {
+func (t *testObj) TypeLink(segments ...string) string {
 	return "/test"
 }
 
-func (t *testObj) AbsObjPath() string {
+func (t *testObj) SelfLink(segments ...string) string {
 	return path.Join("/test", t.Name)
 }
 
@@ -51,7 +53,7 @@ type testObjList struct {
 	Items []testObj `json:"items"`
 }
 
-func (t *testObjList) AbsPath() string {
+func (t *testObjList) TypeLink() string {
 	return "/test"
 }
 
@@ -315,7 +317,7 @@ func TestCreate(t *testing.T) {
 		}
 
 		got := &testObj{}
-		err = cli.Create(context.TODO(), got)
+		err = cli.Create(context.TODO(), got, defaultOptions)
 
 		if nil != err {
 			t.Errorf("unexpected error when creating %q: %v", c.name, err)
@@ -380,7 +382,7 @@ func TestUpdate(t *testing.T) {
 		defer srv.Close()
 
 		got := &testObj{Name: "a", ID: "b1"}
-		err = cli.Update(context.TODO(), got)
+		err = cli.Update(context.TODO(), got, defaultOptions)
 
 		if nil != err {
 			t.Errorf("unexpected error when updating %q: %v", c.name, err)
@@ -458,7 +460,7 @@ func TestPatch(t *testing.T) {
 		}
 
 		got := &testObj{}
-		err = cli.Patch(context.TODO(), ConstantPatch(types2.StrategicMergePatchType, c.patch), got)
+		err = cli.Patch(context.TODO(), got, ConstantPatch(types2.StrategicMergePatchType, c.patch))
 
 		if nil != err {
 			t.Errorf("unexpected error when patching %q: %v", c.name, err)

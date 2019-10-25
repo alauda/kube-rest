@@ -15,5 +15,41 @@ Client-go is not just a client for talking to kubernetes cluster, it is also a g
 
 
 ## How to use
-Check the [examples](https://github.com/alauda/kube-rest/tree/master/exmaples/https)
 
+For example, if we want to make a `POST` request to httpbin.org:
+
+```golang
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/url"
+
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/http"
+	"github.com/alauda/kube-rest/pkg/types"
+)
+
+func main() {
+	address := "http://httpbin.org"
+	client, err := http.NewForConfig(config.GetConfigOrDie(address))
+	if nil != err {
+		log.Fatal(err)
+	}
+
+	v := url.Values{}
+	v.Set("Content-Type", "application/json")
+	option := &types.Options{
+		Header: v,
+	}
+
+	bt, err := client.Create(context.TODO(), "post", nil, option)
+
+	if nil != err {
+		log.Fatal(err)
+	}
+	fmt.Println(fmt.Sprintf("%s", bt))
+}
+```
+
+Check the [examples](https://github.com/alauda/kube-rest/tree/master/exmaples/https) for more examples.

@@ -16,12 +16,12 @@ type client struct {
 }
 
 // Create implements client.Client
-func (c *client) Create(ctx context.Context, obj Object) error {
+func (c *client) Create(ctx context.Context, obj Object, option types.Option) error {
 	data, err := obj.Data()
 	if nil != err {
 		return err
 	}
-	data, err = c.Client.Create(ctx, obj.AbsPath(), data)
+	data, err = c.Client.Create(ctx, obj.TypeLink(), data, option)
 	if nil != err {
 		return err
 	}
@@ -29,12 +29,12 @@ func (c *client) Create(ctx context.Context, obj Object) error {
 }
 
 // Update implements client.Client
-func (c *client) Update(ctx context.Context, obj Object) error {
+func (c *client) Update(ctx context.Context, obj Object, option types.Option) error {
 	data, err := obj.Data()
 	if nil != err {
 		return err
 	}
-	data, err = c.Client.Update(ctx, obj.AbsObjPath(), data)
+	data, err = c.Client.Update(ctx, obj.SelfLink(), data, option)
 	if nil != err {
 		return err
 	}
@@ -44,39 +44,40 @@ func (c *client) Update(ctx context.Context, obj Object) error {
 func (c *client) Get(ctx context.Context, obj Object) error {
 	var bt []byte
 	var err error
-	if bt, err = c.Client.Get(ctx, obj.AbsObjPath()); nil != err {
+	if bt, err = c.Client.Get(ctx, obj.SelfLink()); nil != err {
 		return err
 	}
 	return obj.Parse(bt)
 }
 
-func (c *client) List(ctx context.Context, obj ObjectList, options *types.Options) error {
+func (c *client) List(ctx context.Context, obj ObjectList, option types.Option) error {
 	var bt []byte
 	var err error
-	if bt, err = c.Client.List(ctx, obj.AbsPath(), options); nil != err {
+	if bt, err = c.Client.List(ctx, obj.TypeLink(), option); nil != err {
 		return err
 	}
 	return obj.Parse(bt)
 }
 
-func (c *client) Delete(ctx context.Context, obj Object, options *types.Options) error {
-	_, err := c.Client.Delete(ctx, obj.AbsObjPath(), options)
+func (c *client) Delete(ctx context.Context, obj Object, option types.Option) error {
+	_, err := c.Client.Delete(ctx, obj.SelfLink(), option)
 	return err
 }
 
-func (c *client) Patch(ctx context.Context, patch Patch, obj Object) error {
+func (c *client) Patch(ctx context.Context, obj Object, patch Patch) error {
 	var bt []byte
 	var err error
 	bt, err = patch.Data(obj)
 	if nil != err {
 		return err
 	}
-	if bt, err = c.Client.Patch(ctx, obj.AbsPath(), patch.Type(), bt); nil != err {
+	if bt, err = c.Client.Patch(ctx, obj.TypeLink(), patch.Type(), bt); nil != err {
 		return err
 	}
 	return obj.Parse(bt)
 }
 
+// NewForConfig creates a new rest client
 func NewForConfig(cfg *rest.Config) (Client, error) {
 	restClient, err := http.NewForConfig(cfg)
 	if nil != err {

@@ -17,6 +17,8 @@ import (
 	types2 "k8s.io/apimachinery/pkg/types"
 )
 
+var defaultOptions = &types.Options{Header: url.Values{"Content-Type": []string{"application/json"}}}
+
 func getJSON(key, val string) []byte {
 	return []byte(fmt.Sprintf(`{%q: %q}`, key, val))
 }
@@ -316,7 +318,7 @@ func TestCreate(t *testing.T) {
 			params[k] = values[0]
 		}
 
-		got, err := cli.Create(context.TODO(), path.Path, c.data)
+		got, err := cli.Create(context.TODO(), path.Path, c.data, defaultOptions)
 
 		if nil != err {
 			t.Errorf("unexpected error when creating %q: %v", c.name, err)
@@ -384,7 +386,7 @@ func TestUpdate(t *testing.T) {
 			params[k] = values[0]
 		}
 
-		got, err := cli.Update(context.TODO(), path.Path, c.data)
+		got, err := cli.Update(context.TODO(), path.Path, c.data, defaultOptions)
 
 		if nil != err {
 			t.Errorf("unexpected error when updating %q: %v", c.name, err)

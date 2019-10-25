@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/alauda/kube-rest/pkg/config"
-	"github.com/alauda/kube-rest/pkg/rest"
 	"context"
 	"encoding/json"
 	"log"
@@ -12,6 +10,10 @@ import (
 	"path"
 	"syscall"
 	"time"
+
+	"github.com/alauda/kube-rest/pkg/config"
+	"github.com/alauda/kube-rest/pkg/rest"
+	"github.com/alauda/kube-rest/pkg/types"
 )
 
 const (
@@ -56,7 +58,7 @@ type RestList struct {
 	Items []*Rest `json:"items"`
 }
 
-func (r *RestList) AbsPath() string {
+func (r *RestList) TypeLink() string {
 	return "/rest"
 }
 
@@ -68,11 +70,11 @@ type Rest struct {
 	Name string `json:"name"`
 }
 
-func (r *Rest) AbsPath() string {
+func (r *Rest) TypeLink(segments ...string) string {
 	return "/rest"
 }
 
-func (r *Rest) AbsObjPath() string {
+func (r *Rest) SelfLink(segments ...string) string {
 	return path.Join("/rest", r.Name)
 }
 
@@ -117,7 +119,7 @@ func main() {
 
 	obj := &Rest{}
 
-	err = cli.Create(context.TODO(), obj)
+	err = cli.Create(context.TODO(), obj, &types.Options{})
 	if nil != err {
 		log.Fatal(err)
 	} else {
