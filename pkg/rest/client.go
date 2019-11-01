@@ -29,7 +29,7 @@ func handleError(bt []byte, err error) error {
 				ErrStatus: t.Status(),
 			}
 			ret.ErrStatus.Message = string(bt)
-			return err
+			return ret
 		}
 	}
 	return err
